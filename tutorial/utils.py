@@ -23,7 +23,7 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
     :param max_len: don't sample captions longer than this length
     """
 
-    assert dataset in {'coco', 'flickr8k', 'flickr30k'}
+    assert dataset in {'flickr8kzh', 'coco', 'flickr8k', 'flickr30k'}
 
     # Read Karpathy JSON
     with open(karpathy_json_path, 'r') as j:
