@@ -5,21 +5,21 @@ import torch.utils.data
 import torchvision.transforms as transforms
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
-from models import Encoder, DecoderWithAttention
+from models2 import Encoder, DecoderWithAttention
 from datasets import *
 from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 
 # Data parameters
 data_folder = '../prepared_data'  # folder with data files saved by create_input_files.py
-data_name = 'flickr8kzh_5_cap_per_img_5_min_word_freq_seg_based'  # base name shared by data files
+data_name = 'flickr8kzh_5_cap_per_img_5_min_word_freq_char_based'  # base name shared by data files
 
 # Model parameters
 emb_dim = 512  # dimension of word embeddings
 attention_dim = 512  # dimension of attention linear layers
 decoder_dim = 512  # dimension of decoder RNN
 dropout = 0.5
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
+device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
 print("device=", device)
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
 

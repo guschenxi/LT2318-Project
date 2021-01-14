@@ -8,4 +8,5 @@ if __name__ == '__main__':
                        captions_per_image=5,
                        min_word_freq=5,
                        output_folder='../prepared_data/',
-                       max_len=50)
+                       max_len=50,
+                       char_based=False)

@@ -9,8 +9,7 @@ from collections import Counter
 from random import seed, choice, sample
 
 
-def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_image, min_word_freq, output_folder,
-                       max_len=100):
+def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_image, min_word_freq, output_folder, max_len=100, char_based=False):
     """
     Creates input files for training, validation, and test data.
 
@@ -42,9 +41,15 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
         captions = []
         for c in img['sentences']:
             # Update word frequency
-            word_freq.update(c['tokens'])
-            if len(c['tokens']) <= max_len:
-                captions.append(c['tokens'])
+            if char_based == False:
+                tokens = c['tokens'].split()
+                word_freq.update(tokens)
+                if len(tokens) <= max_len:captions.append(c['tokens'])
+            elif char_based == True:
+                tokens = "".join(c['tokens'].split())
+                word_freq.update(tokens)
+                if len(tokens) <= max_len:captions.append(c['tokens'])
+            #captions.append(c['tokens'])
 
         if len(captions) == 0:
             continue
@@ -76,7 +81,11 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
     word_map['<pad>'] = 0
 
     # Create a base/root name for all output files
-    base_filename = dataset + '_' + str(captions_per_image) + '_cap_per_img_' + str(min_word_freq) + '_min_word_freq'
+    if char_based == True:
+        a = "_char_based"
+    elif char_based == False:
+        a = "_seg_based"
+    base_filename = dataset + '_' + str(captions_per_image) + '_cap_per_img_' + str(min_word_freq) + '_min_word_freq'+ a
 
     # Save word map to a JSON
     with open(os.path.join(output_folder, 'WORDMAP_' + base_filename + '.json'), 'w') as j:
@@ -125,13 +134,20 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
                 images[i] = img
 
                 for j, c in enumerate(captions):
-                    # Encode captions
-                    enc_c = [word_map['<start>']] + [word_map.get(word, word_map['<unk>']) for word in c] + [
-                        word_map['<end>']] + [word_map['<pad>']] * (max_len - len(c))
-
-                    # Find caption lengths
-                    c_len = len(c) + 2
-
+                    if char_based == True:
+                        # Encode captions
+                        enc_c = [word_map['<start>']] + [word_map.get(word, word_map['<unk>']) for word in c if word!=" "] + [
+                            word_map['<end>']] 
+                        # Find caption lengths
+                        c_len = len("".join(c.split())) + 2
+                    elif char_based == False:
+                        # Encode captions
+                        enc_c = [word_map['<start>']] + [word_map.get(word, word_map['<unk>']) for word in c.split()] + [
+                            word_map['<end>']]
+                        # Find caption lengths
+                        c_len = len(c.split()) + 2
+                    # pad
+                    enc_c = enc_c + [word_map['<pad>']] * (max_len + 2 - len(enc_c))
                     enc_captions.append(enc_c)
                     caplens.append(c_len)
 
@@ -228,10 +244,16 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
              'encoder_optimizer': encoder_optimizer,
              'decoder_optimizer': decoder_optimizer}
     filename = 'checkpoint_' + data_name + '.pth.tar'
-    torch.save(state, filename)
+    torch.save(state, 
+               filename, 
+               #_use_new_zipfile_serialization=False
+              )
     # If this checkpoint is the best so far, store a copy so it doesn't get overwritten by a worse checkpoint
     if is_best:
-        torch.save(state, 'BEST_' + filename)
+        torch.save(state,
+                   'BEST_' + filename,
+                   #_use_new_zipfile_serialization=False
+                  )
 
 
 class AverageMeter(object):
