@@ -22,7 +22,7 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
     :param max_len: don't sample captions longer than this length
     """
 
-    assert dataset in {'flickr8kzh', 'coco', 'flickr8k', 'flickr30k'}
+    assert dataset in {'flickr8kzh', 'flickr30kzh', 'coco', 'flickr8k', 'flickr30k'}
 
     # Read Karpathy JSON
     with open(karpathy_json_path, 'r') as j:
@@ -222,7 +222,7 @@ def clip_gradient(optimizer, grad_clip):
 
 
 def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer, decoder_optimizer,
-                    bleu4, is_best):
+                    bleu4, is_best, fine_tune):
     """
     Saves model checkpoint.
 
@@ -244,16 +244,19 @@ def save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder
              'encoder_optimizer': encoder_optimizer,
              'decoder_optimizer': decoder_optimizer}
     path = "../checkpoints/"
-    filename = 'checkpoint_' + data_name + '.pth.tar'
+    if fine_tune:
+        filename = 'checkpoint_' + data_name + '_fine_tune.pth.tar'
+    else:
+        filename = 'checkpoint_' + data_name + '.pth.tar'
     torch.save(state, 
                path + filename, 
-               #_use_new_zipfile_serialization=False
+               _use_new_zipfile_serialization=False
               )
     # If this checkpoint is the best so far, store a copy so it doesn't get overwritten by a worse checkpoint
     if is_best:
         torch.save(state,
                    path + 'BEST_' + filename,
-                   #_use_new_zipfile_serialization=False
+                   _use_new_zipfile_serialization=False
                   )
 
 
