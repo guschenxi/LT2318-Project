@@ -7,7 +7,19 @@ from scipy.misc import imread, imresize
 from tqdm import tqdm
 from collections import Counter
 from random import seed, choice, sample
-
+import heapq
+import torchvision.transforms as transforms
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
+font = FontProperties(fname='../library/heiti.ttf', size=12)
+import torch.nn.functional as F
+import matplotlib.cm as cm
+import skimage.transform
+import argparse
+from imageio import imread
+from PIL import Image
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#device = "cpu"
 
 def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_image, min_word_freq, output_folder, max_len=100, char_based=False):
     """
@@ -171,6 +183,23 @@ def init_embedding(embeddings):
     bias = np.sqrt(3.0 / embeddings.size(1))
     torch.nn.init.uniform_(embeddings, -bias, bias)
 
+def read_image_and_resize(image_path):
+    # Read image and process
+    img = imread(image_path)
+    if len(img.shape) == 2:
+        img = img[:, :, np.newaxis]
+        img = np.concatenate([img, img, img], axis=2)
+    #img = imresize(img, (256, 256))
+    img = np.array(Image.fromarray(img).resize((256,256), Image.BICUBIC))
+    
+    img = img.transpose(2, 0, 1)
+    img = img / 255.
+    img = torch.FloatTensor(img).to(device)
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+    transform = transforms.Compose([normalize])
+    image = transform(img)  # (3, 256, 256)
+    return image
 
 def load_embeddings(emb_file, word_map):
     """
@@ -310,3 +339,95 @@ def accuracy(scores, targets, k):
     correct = ind.eq(targets.view(-1, 1).expand_as(ind))
     correct_total = correct.view(-1).float().sum()  # 0D tensor
     return correct_total.item() * (100.0 / batch_size)
+
+class beam():
+    def __init__(self, beam_width=5):
+        self.heap = list()
+        self.beam_width = beam_width
+        
+    def add(self, prob, complete, seq, alphas, inputs, h, c):
+        heapq.heappush(self.heap, [prob, complete, seq, alphas, inputs, h, c])
+        if len(self.heap) > self.beam_width:
+            heapq.heappop(self.heap)
+    
+    def __iter__(self):
+        return iter(self.heap)
+
+def decode_one(decoder, encoder_out, encoder_dim, enc_image_size, word_map_start, word_map_end, beam_width):
+    """Generate one sample"""
+    batch_size = 1
+    inputs = torch.Tensor([word_map_start]).long().to(device)
+    h, c = decoder.init_hidden_state(encoder_out)
+    alphas = torch.ones(1, enc_image_size, enc_image_size).to(device)
+    prev_beam = beam(beam_width)
+    prev_beam.add(1, False, [word_map_start], alphas, inputs, h, c)
+    while True:
+        cur_beam = beam()
+        for _prob, _complete, _seq, _alphas, _inputs, _h, _c in prev_beam:
+            if _complete == True:
+                cur_beam.add(_prob, _complete, _seq, _alphas, _inputs, _h, _c)
+            else:
+                embeddings = decoder.embedding(_inputs)  # (1, embed_dim)
+                awe, alpha = decoder.attention(encoder_out, _h)  # (1, encoder_dim), (1, num_pixels)
+                alpha = alpha.view(-1, enc_image_size, enc_image_size) # (1, enc_image_size, enc_image_size)
+                gate = decoder.sigmoid(decoder.f_beta(_h))  # gating scalar, (1, encoder_dim)
+                awe = gate * awe
+                h, c = decoder.decode_step(torch.cat([embeddings, awe], dim=1), (_h, _c))
+                score = decoder.fc(h)  # (1, vocab_size)
+                preds = F.softmax(score, dim=1)
+                value, pred = torch.topk(preds.view(-1),beam_width)
+                for m, n in zip(value, pred):
+                    next_input = n.item()
+                    inputs = torch.Tensor([next_input]).long().to(device)
+                    seq = _seq + [n.item()]
+                    prob = _prob * m.item()
+                    alphas = torch.cat((_alphas, alpha), dim=0)
+                    if n.item() == word_map_end or len(seq) == 51:
+                        complete = True
+                    else:
+                        complete = False
+                    cur_beam.add(prob, complete, seq, alphas, inputs, h, c)
+        best_prob, best_complete, best_seq, best_alphas, _, _, _ = max(cur_beam)
+        if best_complete == True:
+            #del embeddings, awe, alpha, gate, h, c, score, preds, value, pred, next_input, inputs, seq, prob, alphas
+            return best_seq, best_alphas
+        else:                
+            prev_beam = cur_beam
+            
+def visualize_att(image_path, seq, alphas, rev_word_map, smooth=True):
+    """
+    Visualizes caption with weights at every word.
+
+    Adapted from paper authors' repo: https://github.com/kelvinxu/arctic-captions/blob/master/alpha_visualization.ipynb
+
+    :param image_path: path to image that has been captioned
+    :param seq: caption
+    :param alphas: weights
+    :param rev_word_map: reverse word mapping, i.e. ix2word
+    :param smooth: smooth weights?
+    """
+    image = Image.open(image_path)
+    image = image.resize([14 * 24, 14 * 24], Image.LANCZOS)
+
+    words = [rev_word_map[ind] for ind in seq]
+    fig = plt.figure(figsize=(20, 5))
+    for t in range(len(words)):
+        if t > 50:
+            break
+        
+        plt.subplot(np.ceil(len(words) / 10.), 10, t + 1)
+
+        plt.text(0, 1, '%s' % (words[t]), color='black', backgroundcolor='white', fontsize=12, fontproperties=font)
+        plt.imshow(image)
+        current_alpha = alphas[t, :]
+        if smooth:
+            alpha = skimage.transform.pyramid_expand(current_alpha.detach().numpy(), upscale=24, sigma=8)
+        else:
+            alpha = skimage.transform.resize(current_alpha.detach().numpy(), [14 * 24, 14 * 24])
+        if t == 0:
+            plt.imshow(alpha, alpha=0)
+        else:
+            plt.imshow(alpha, alpha=0.8)
+        plt.set_cmap(cm.Greys_r)
+        plt.axis('off')
+    plt.show()
