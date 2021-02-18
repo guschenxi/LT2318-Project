@@ -40,16 +40,16 @@ word_map4 ="../prepared_data/WORDMAP_" + data_name4 + ".json"
 
 data_names = [
               #data_name1, halv
-              data_name2, data_name3, data_name4,
+              data_name2, #data_name3, data_name4,
               ]
 
 models = [
           #model5, halv
-          model6, model7, model8, 
+          model6, #model7, model8, 
           ]
 
 word_maps = [
              #word_map1, 
-             word_map2, word_map3, word_map4,
+             word_map2, #word_map3, word_map4,
              ]
         

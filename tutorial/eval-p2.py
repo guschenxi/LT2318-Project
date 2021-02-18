@@ -38,7 +38,7 @@ for data_name, model, word_map_file in zip(data_names, models, word_maps):
                                      std=[0.229, 0.224, 0.225])
     
     # Evaluate with beam search
-    for beam_width in range(1,6):
+    for beam_width in range(2,6):
         score = evaluate_with_beam(beam_width, data_name, model, encoder, decoder, word_map, word_map_start, word_map_end, rev_word_map)
         print(score)
         print()
