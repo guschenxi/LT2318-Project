@@ -3,7 +3,7 @@ from torch import nn
 import torchvision
 
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-
+#device = torch.device("cpu")
 
 class Encoder(nn.Module):
     """

@@ -5,14 +5,14 @@ import torch.utils.data
 import torchvision.transforms as transforms
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
-from models2 import Encoder, DecoderWithAttention
+from models import Encoder, DecoderWithAttention
 from datasets import *
 from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 
 # Data parameters
 data_folder = '../prepared_data'  # folder with data files saved by create_input_files.py
-data_name = 'flickr30kzh_5_cap_per_img_5_min_word_freq_char_based'  # base name shared by data files
+data_name = 'flickr30kzh_5_cap_per_img_5_min_word_freq_seg_based'  # base name shared by data files
 
 # Model parameters
 emb_dim = 512  # dimension of word embeddings
@@ -20,6 +20,7 @@ attention_dim = 512  # dimension of attention linear layers
 decoder_dim = 512  # dimension of decoder RNN
 dropout = 0.5
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")  # sets device for model and PyTorch tensors
+#device = torch.device("cpu")
 print("device=", device)
 cudnn.benchmark = True  # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
 
@@ -35,8 +36,9 @@ grad_clip = 5.  # clip gradients at an absolute value of
 alpha_c = 1.  # regularization parameter for 'doubly stochastic attention', as in the paper
 best_bleu4 = 0.  # BLEU-4 score right now
 print_freq = 100  # print training/validation stats every __ batches
-fine_tune_encoder = True  # fine-tune encoder?
-checkpoint = None  # path to checkpoint, None if none
+fine_tune_encoder = False  # fine-tune encoder?
+#checkpoint = "../checkpoints/checkpoint_flickr30kzh_5_cap_per_img_5_min_word_freq_seg_based_fine_tune.pth.tar"  # path to checkpoint, None if none
+checkpoint = None
 
 
 def main():
@@ -66,7 +68,11 @@ def main():
                                              lr=encoder_lr) if fine_tune_encoder else None
 
     else:
-        checkpoint = torch.load(checkpoint)
+        checkpoint = torch.load(
+                                checkpoint,
+                                map_location=lambda storage, loc: storage.cuda(1)
+                                #map_location=torch.device("cpu")
+                               )
         start_epoch = checkpoint['epoch'] + 1
         epochs_since_improvement = checkpoint['epochs_since_improvement']
         best_bleu4 = checkpoint['bleu-4']

@@ -39,17 +39,26 @@ word_map3 ="../prepared_data/WORDMAP_" + data_name3 + ".json"
 word_map4 ="../prepared_data/WORDMAP_" + data_name4 + ".json"
 
 data_names = [
-               #data_name4,
-              data_name1 #, data_name4, data_name3, data_name4
+              data_name1, data_name2,
+              data_name3, data_name4,
+                data_name1, data_name2,
+              data_name3, data_name4,
+                data_name1, data_name2,
+              data_name3, data_name4,
+              ]
+
+models = [ model1, model2, model3, model4, 
+          model5, model6, model7, model8, 
+          model9, model10, model11, model12, 
+          #model10nb, #model6, 
+          ]
+
+word_maps = [#word_map4,
+             word_map1, word_map2,
+             word_map3, word_map4, 
+             word_map1, word_map2,
+             word_map3, word_map4, 
+             word_map1, word_map2,
+             word_map3, word_map4, 
              ]
-
-models = [
-           #model8nb, 
-          model9nb, #model8, model11nb, model12nb
-         ]
-
-word_maps = [
-             #word_map4,
-             word_map1#, word_map4, word_map3, word_map4
-            ]
         
